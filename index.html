@@ -1149,6 +1149,31 @@ async function saveCustomer(id) {
   const payDays  = parseInt($('f-pay-days')?.value||0)||null;
   if(!name){$('f-err').textContent='الاسم مطلوب';$('f-err').style.display='block';return;}
   try {
+    // Check for duplicate name
+    const existing = _custs.filter(c => {
+      const match = c.name.trim().toLowerCase() === name.toLowerCase();
+      if(id) return match && c.id !== id; // ignore self when editing
+      return match;
+    });
+    if(existing.length > 0) {
+      $('f-err').innerHTML = `⚠️ يوجد زبون بنفس الاسم: <strong>${esc(existing[0].name)}</strong> — هل تريد المتابعة؟<br/><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-primary" onclick="forceSaveCustomer('${id||''}')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-family:Cairo,sans-serif">نعم، أضف على أي حال</button><button onclick="document.getElementById('f-err').style.display='none'" style="padding:6px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:12px;font-family:Cairo,sans-serif;cursor:pointer">إلغاء</button></div>`;
+      $('f-err').style.display='block';
+      return;
+    }
+    await doSaveCustomer(id, name, phone, area, notes, limitIqd, limitUsd, payDays);
+  } catch(e){$('f-err').textContent=e.message;$('f-err').style.display='block';}
+}
+
+async function forceSaveCustomer(id) {
+  const name=$('f-name').value.trim(),phone=$('f-phone').value.trim(),area=$('f-area').value.trim(),notes=$('f-notes').value.trim();
+  const limitIqd = parseFloat($('f-limit-iqd')?.value||0)||null;
+  const limitUsd = parseFloat($('f-limit-usd')?.value||0)||null;
+  const payDays  = parseInt($('f-pay-days')?.value||0)||null;
+  await doSaveCustomer(id||null, name, phone, area, notes, limitIqd, limitUsd, payDays);
+}
+
+async function doSaveCustomer(id, name, phone, area, notes, limitIqd, limitUsd, payDays) {
+  try {
     let custId = id;
     if(id) {
       await dbUpdate('customers',id,{name,phone,area,notes,limit_iqd:limitIqd,limit_usd:limitUsd,payment_days:payDays});
