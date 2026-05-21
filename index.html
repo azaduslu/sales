@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>نظام حسابات المناديب</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{font-family:'Cairo',sans-serif}
+body{background:#f0f6ff;direction:rtl;margin:0}
+.btn{cursor:pointer;border:none;outline:none}
+.btn-primary{background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;transition:all .2s}
+.btn-primary:hover{opacity:.9}
+.btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.card{background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #e8f0fe}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:600;font-size:14px;color:#475569;transition:all .2s;border:none;background:none;width:100%;text-align:right}
+.sidebar-item:hover{background:rgba(14,165,233,.1)}
+.sidebar-item.active{background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff}
+.inp{width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 14px;font-size:14px;font-family:'Cairo',sans-serif;background:#f8fafc;outline:none;box-sizing:border-box;direction:rtl;text-align:right;transition:border .2s}
+.inp:focus{border-color:#0ea5e9;background:#fff}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#fff;border-radius:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.badge-iqd{background:#dcfce7;color:#166534;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700}
+.badge-usd{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700}
+.badge-admin{background:#f3e8ff;color:#7c3aed;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-rep{background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.tag-inv{background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.tag-pay{background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+#sidebar{width:240px;background:#fff;border-left:1px solid #e8f0fe;display:flex;flex-direction:column;height:100vh;position:fixed;right:0;top:0;z-index:40}
+#main{margin-right:240px;min-height:100vh;display:flex;flex-direction:column}
+#topbar{background:#fff;border-bottom:1px solid #e8f0fe;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
+#content{padding:24px;flex:1}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+table{width:100%;border-collapse:collapse}
+th{background:#f8fafc;padding:12px 16px;text-align:right;font-size:13px;color:#64748b;font-weight:600;border-bottom:1px solid #e8f0fe}
+td{padding:12px 16px;font-size:13px;color:#334155;border-bottom:1px solid #f8fafc}
+tr:hover td{background:#f8fafc}
+.alert-err{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:12px}
+.alert-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:12px}
+@media(max-width:768px){
+  #sidebar{transform:translateX(100%);transition:transform .3s}
+  #sidebar.open{transform:translateX(0)}
+  #main{margin-right:0}
+  #content{padding:16px}
+  .hide-mobile{display:none}
+}
+.fade{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page" style="display:none;min-height:100vh;background:linear-gradient(135deg,#0c4a6e,#0369a1);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:24px;padding:36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:60px;height:60px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h1 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">نظام حسابات المناديب</h1>
+      <p style="color:#94a3b8;margin:6px 0 0;font-size:13px">سجّل الدخول للمتابعة</p>
+    </div>
+    <div id="login-err" class="alert-err" style="display:none"></div>
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">البريد الإلكتروني</label>
+      <input id="login-email" class="inp" type="email" placeholder="example@email.com"/>
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">كلمة المرور</label>
+      <div style="position:relative">
+        <input id="login-pass" class="inp" type="password" placeholder="••••••••" style="padding-left:40px"/>
+        <button type="button" onclick="togglePassVis('login-pass','eye-login')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px">
+          <svg id="eye-login" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <button id="login-btn" class="btn btn-primary" style="width:100%;padding:13px;border-radius:14px;font-size:16px;font-weight:700;font-family:Cairo,sans-serif">تسجيل الدخول</button>
+    <div style="text-align:center;margin-top:14px">
+      <button onclick="showForgotPassword()" style="background:none;border:none;color:#0284c7;font-size:13px;font-weight:600;font-family:Cairo,sans-serif;cursor:pointer;text-decoration:underline">نسيت كلمة المرور؟</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-page" style="display:none">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div style="padding:18px;border-bottom:1px solid #e8f0fe">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+          <div style="font-weight:800;font-size:13px;color:#1e293b">حسابات المناديب</div>
+          <div style="font-size:11px;color:#94a3b8">نظام المبيعات</div>
+        </div>
+      </div>
+    </div>
+    <nav id="nav" style="flex:1;padding:10px;overflow-y:auto"></nav>
+    <div style="padding:12px;border-top:1px solid #e8f0fe">
+      <div style="background:#f8fafc;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div id="sb-name" style="font-weight:700;font-size:13px;color:#1e293b"></div>
+        <div id="sb-role" style="font-size:11px;color:#94a3b8;margin-top:2px"></div>
+      </div>
+      <button onclick="showChangePassword()" class="btn" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;color:#0284c7;font-size:13px;font-weight:600;font-family:Cairo,sans-serif;background:none;margin-bottom:4px;transition:background .2s" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='none'">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        تغيير كلمة المرور
+      </button>
+      <button id="logout-btn" class="btn" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;color:#ef4444;font-size:13px;font-weight:600;font-family:Cairo,sans-serif;background:none;transition:background .2s" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        تسجيل الخروج
+      </button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-btn" class="btn hide-mobile" style="display:none;padding:8px;border-radius:8px;background:#f1f5f9" onclick="document.getElementById('sidebar').classList.toggle('open')">
+        <svg width="20" height="20" fill="none" stroke="#475569" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <h2 id="page-title" style="font-size:17px;font-weight:700;color:#1e293b;margin:0"></h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="text-align:left">
+          <div id="top-name" style="font-size:13px;font-weight:700;color:#1e293b"></div>
+          <div id="top-role" style="font-size:11px;color:#94a3b8"></div>
+        </div>
+        <div style="width:36px;height:36px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #f1f5f9">
+      <h3 id="modal-title" style="margin:0;font-size:16px;font-weight:700;color:#1e293b"></h3>
+      <button class="btn" onclick="closeModal()" style="padding:6px;border-radius:8px;background:#f1f5f9;color:#64748b">✕</button>
+    </div>
+    <div id="modal-body" style="padding:20px"></div>
+  </div>
+</div>
+
+<script>
+// ═══ CONFIG ═══
+const SB_URL = 'https://hevihjdotbspwkdolsfd.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhldmloamRvdGJzcHdrZG9sc2ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MjQzMTUsImV4cCI6MjA5NDUwMDMxNX0.jII5tSot8Y57_eiE2eOveR9BLmuOoINHSjNmyI9b6Ko';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+// ═══ STATE ═══
+let currentUser = null;
+let currentPage = 'dashboard';
+
+// ═══ HELPERS ═══
+const $ = id => document.getElementById(id);
+const fmt = (n,cur) => cur==='USD' ? `$${Number(n).toLocaleString('en')}` : `${Number(n).toLocaleString('en')} د.ع`;
+const today = () => new Date().toISOString().split('T')[0];
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '';
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function showModal(title, html, onShow) {
+  $('modal-title').textContent = title;
+  $('modal-body').innerHTML = html;
+  $('modal').style.display = 'flex';
+  if(onShow) onShow();
+}
+function closeModal() { $('modal').style.display='none'; }
+
+function showToast(msg, ok=true) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${ok?'#0ea5e9':'#ef4444'};color:#fff;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:999;font-family:Cairo,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.2)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2500);
+}
+
+// ═══ DB ═══
+async function dbQuery(table, filters={}, order=null) {
+  let q = sb.from(table).select('*');
+  Object.entries(filters).forEach(([k,v])=>{ q = q.eq(k,v); });
+  if(order) q = q.order(order.col, {ascending:order.asc});
+  const {data,error} = await q;
+  if(error) throw error;
+  return data||[];
+}
+
+async function dbInsert(table, obj) {
+  const {data,error} = await sb.from(table).insert(obj).select().single();
+  if(error) throw error;
+  return data;
+}
+
+async function dbUpdate(table, id, obj) {
+  const {data,error} = await sb.from(table).update(obj).eq('id',id).select().single();
+  if(error) throw error;
+  return data;
+}
+
+async function dbDelete(table, id) {
+  const {error} = await sb.from(table).delete().eq('id',id);
+  if(error) throw error;
+}
+
+async function getCustomers() {
+  let q = sb.from('customers').select('*').order('name');
+  if(currentUser.role!=='admin') q = q.eq('rep_id', currentUser.id);
+  const {data,error} = await q;
+  if(error) throw error;
+  return data||[];
+}
+
+async function getInvoices(custId=null) {
+  let q = sb.from('invoices').select('*').order('date',{ascending:false});
+  if(currentUser.role!=='admin') q = q.eq('rep_id', currentUser.id);
+  if(custId) q = q.eq('customer_id', custId);
+  const {data,error} = await q;
+  if(error) throw error;
+  return data||[];
+}
+
+async function getPayments(custId=null) {
+  let q = sb.from('payments').select('*').order('date',{ascending:false});
+  if(currentUser.role!=='admin') q = q.eq('rep_id', currentUser.id);
+  if(custId) q = q.eq('customer_id', custId);
+  const {data,error} = await q;
+  if(error) throw error;
+  return data||[];
+}
+
+// ═══ AUTH ═══
+$('login-btn').onclick = async () => {
+  const email = $('login-email').value.trim();
+  const pass  = $('login-pass').value;
+  if(!email||!pass) return;
+  $('login-btn').textContent = 'جارٍ الدخول...';
+  $('login-err').style.display = 'none';
+  try {
+    const {data,error} = await sb.auth.signInWithPassword({email,password:pass});
+    if(error) throw error;
+    const {data:profile,error:pe} = await sb.from('profiles').select('*').eq('id',data.user.id).single();
+    if(pe||!profile) throw new Error('لم يتم العثور على الملف الشخصي');
+    currentUser = {id:data.user.id, email:data.user.email, name:profile.name||data.user.email, role:profile.role||'rep'};
+    showApp();
+  } catch(e) {
+    $('login-err').textContent = e.message==='Invalid login credentials'?'البريد الإلكتروني أو كلمة المرور غير صحيحة':e.message;
+    $('login-err').style.display = 'block';
+  }
+  $('login-btn').textContent = 'تسجيل الدخول';
+};
+
+$('login-pass').onkeydown = e => { if(e.key==='Enter') $('login-btn').click(); };
+
+$('logout-btn').onclick = async () => {
+  await sb.auth.signOut();
+  currentUser = null;
+  _companyInfoCache = null;
+  $('app-page').style.display = 'none';
+  $('login-page').style.display = 'flex';
+};
+
+// ═══ APP INIT ═══
+function showApp() {
+  $('login-page').style.display = 'none';
+  $('app-page').style.display = 'block';
+  $('sb-name').textContent = currentUser.name;
+  $('sb-role').textContent = currentUser.role==='admin'?'مدير النظام':'مندوب مبيعات';
+  $('top-name').textContent = currentUser.name;
+  $('top-role').textContent = currentUser.role==='admin'?'مدير':'مندوب';
+  buildNav();
+  navigate('dashboard');
+  // Check alerts in background
+  setTimeout(()=>checkAlerts(), 1500);
+}
+
+const pages = [
+  {id:'dashboard', label:'الرئيسية', icon:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'},
+  {id:'customers', label:'الزبائن', icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0'},
+  {id:'invoices',  label:'الفواتير', icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8'},
+  {id:'payments',  label:'التسديدات', icon:'M1 4h22v16H1z M1 10h22'},
+  {id:'statement', label:'كشف الحساب', icon:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'},
+  {id:'alerts',    label:'التنبيهات', icon:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0'},
+  {id:'users',     label:'المستخدمين', icon:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8', adminOnly:true},
+  {id:'allstatement', label:'كشف الكل', icon:'M9 17H7A5 5 0 0 1 7 7h2 M15 7h2a5 5 0 0 1 0 10h-2 M8 12h8'},
+  {id:'settings',  label:'إعدادات الشركة', icon:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'},
+];
+
+function buildNav() {
+  const nav = $('nav');
+  nav.innerHTML = '';
+  pages.forEach(p => {
+    if(p.adminOnly && currentUser.role!=='admin') return;
+    const btn = document.createElement('button');
+    btn.className = 'sidebar-item';
+    btn.id = 'nav-'+p.id;
+    btn.innerHTML = `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="${p.icon}"/></svg>${p.label}`;
+    btn.onclick = () => navigate(p.id);
+    nav.appendChild(btn);
+  });
+}
+
+// ═══ ALL CUSTOMERS STATEMENT ═══
+let _allStmtRawData = null;
+
+async function renderAllStatements() {
+  $('content').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">جارٍ تحميل البيانات...</div>';
+  try {
+    const [custs, allInvs, allPays] = await Promise.all([
+      getCustomers(), getInvoices(), getPayments()
+    ]);
+
+    const data = custs.map(c => {
+      const invs = allInvs.filter(i=>i.customer_id===c.id);
+      const pays = allPays.filter(p=>p.customer_id===c.id);
+      const iqd = {
+        inv: invs.filter(i=>i.currency==='IQD').reduce((s,i)=>s+parseFloat(i.amount||0),0),
+        pay: pays.filter(p=>p.currency==='IQD').reduce((s,p)=>s+parseFloat(p.amount||0),0),
+      };
+      const usd = {
+        inv: invs.filter(i=>i.currency==='USD').reduce((s,i)=>s+parseFloat(i.amount||0),0),
+        pay: pays.filter(p=>p.currency==='USD').reduce((s,p)=>s+parseFloat(p.amount||0),0),
+      };
+      return { ...c, iqd, usd };
+    });
+
+    _allStmtRawData = data;
+
+    $('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div>
+          <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">كشف حساب الكل</h2>
+          <p style="color:#94a3b8;margin:2px 0 0;font-size:13px">${custs.length} زبون</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;background:#f1f5f9;border-radius:12px;padding:4px;gap:4px">
+            <button id="btn-iqd" onclick="switchAllStmtCur('IQD')" style="padding:8px 18px;border-radius:10px;border:none;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#166534,#16a34a);color:#fff;transition:all .2s">
+              💰 دينار (IQD)
+            </button>
+            <button id="btn-usd" onclick="switchAllStmtCur('USD')" style="padding:8px 18px;border-radius:10px;border:none;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:none;color:#64748b;transition:all .2s">
+              💵 دولار (USD)
+            </button>
+          </div>
+          <button onclick="exportAllStatementPDF()" style="padding:9px 18px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-size:13px;font-weight:700;font-family:Cairo,sans-serif;border:none;cursor:pointer;display:flex;align-items:center;gap:6px">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            تصدير PDF
+          </button>
+        </div>
+      </div>
+      <div id="all-stmt-body"></div>`;
+
+    renderAllStmtTable('IQD');
+
+  } catch(e){ $('content').innerHTML=`<div class="alert-err">${e.message}</div>`; }
+}
+
+let _allStmtCur = 'IQD';
+
+function switchAllStmtCur(cur) {
+  _allStmtCur = cur;
+  // Update buttons
+  const btnIqd = $('btn-iqd');
+  const btnUsd = $('btn-usd');
+  if(cur==='IQD') {
+    btnIqd.style.background = 'linear-gradient(135deg,#166534,#16a34a)';
+    btnIqd.style.color = '#fff';
+    btnUsd.style.background = 'none';
+    btnUsd.style.color = '#64748b';
+  } else {
+    btnUsd.style.background = 'linear-gradient(135deg,#1e40af,#3b82f6)';
+    btnUsd.style.color = '#fff';
+    btnIqd.style.background = 'none';
+    btnIqd.style.color = '#64748b';
+  }
+  renderAllStmtTable(cur);
+}
+
+function renderAllStmtTable(cur) {
+  const data = _allStmtRawData;
+  if(!data) return;
+  const isIQD = cur === 'IQD';
+  const fmt = n => isIQD ? Number(n).toLocaleString('en')+' IQD' : '$'+Number(n).toLocaleString('en');
+  const colored = isIQD ? '#166534' : '#1e40af';
+  const bgHead = isIQD ? '#f0fdf4' : '#eff6ff';
+  const label = isIQD ? 'دينار عراقي (IQD)' : 'دولار أمريكي (USD)';
+  const emoji = isIQD ? '💰' : '💵';
+
+  const filtered = data.map(c => ({
+    ...c,
+    inv: isIQD ? c.iqd.inv : c.usd.inv,
+    pay: isIQD ? c.iqd.pay : c.usd.pay,
+  })).filter(c => c.inv > 0 || c.pay > 0);
+
+  const totInv = filtered.reduce((s,c)=>s+c.inv,0);
+  const totPay = filtered.reduce((s,c)=>s+c.pay,0);
+  const totRem = totInv - totPay;
+
+  $('all-stmt-body').innerHTML = `
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+      <div class="card" style="padding:16px;text-align:center;background:#fef2f2;border-color:#fecaca">
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">إجمالي الفواتير</div>
+        <div style="font-weight:800;color:#dc2626;font-size:16px">${fmt(totInv)}</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;background:#f0fdf4;border-color:#bbf7d0">
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">إجمالي التحصيل</div>
+        <div style="font-weight:800;color:#16a34a;font-size:16px">${fmt(totPay)}</div>
+      </div>
+      <div class="card" style="padding:16px;text-align:center;background:#fff7ed;border-color:#fed7aa">
+        <div style="font-size:11px;color:#64748b;margin-bottom:4px">إجمالي المتبقي</div>
+        <div style="font-weight:800;font-size:16px;color:${totRem>0?'#ea580c':'#16a34a'}">${fmt(Math.abs(totRem))}${totRem<=0?' ✓':''}</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card fade" style="overflow:hidden">
+      <div style="padding:12px 16px;background:${isIQD?'linear-gradient(135deg,#166534,#16a34a)':'linear-gradient(135deg,#1e40af,#3b82f6)'};color:#fff;font-weight:700;font-size:14px">
+        ${emoji} كشف الحسابات — ${label}
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr style="background:${bgHead}">
+              <th style="color:${colored}">#</th>
+              <th style="color:${colored}">الزبون</th>
+              <th style="color:${colored}">المنطقة</th>
+              <th style="color:${colored}">إجمالي الفواتير</th>
+              <th style="color:${colored}">إجمالي التسديد</th>
+              <th style="color:${colored}">الرصيد المتبقي</th>
+              <th style="color:${colored}">الحالة</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length===0
+              ? `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px">لا توجد معاملات بـ ${label}</td></tr>`
+              : filtered.map((c,i)=>{
+                  const rem = c.inv - c.pay;
+                  return `<tr style="background:${i%2===0?'#f8fafc':'#fff'}">
+                    <td style="color:#64748b">${i+1}</td>
+                    <td style="font-weight:700;color:#1e293b">${esc(c.name)}</td>
+                    <td style="color:#64748b;font-size:12px">${esc(c.area||'—')}</td>
+                    <td style="font-weight:700;color:#dc2626">${fmt(c.inv)}</td>
+                    <td style="font-weight:700;color:#16a34a">${fmt(c.pay)}</td>
+                    <td style="font-weight:800;color:${rem>0?'#ea580c':'#16a34a'}">${fmt(Math.abs(rem))}</td>
+                    <td><span style="background:${rem>0?'#fff7ed':'#f0fdf4'};color:${rem>0?'#ea580c':'#16a34a'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${rem>0?'متبقي':'مسدّد ✓'}</span></td>
+                  </tr>`;
+                }).join('')}
+            <tr style="background:${bgHead};border-top:2px solid ${isIQD?'#86efac':'#93c5fd'};font-weight:800">
+              <td colspan="3" style="padding:10px 16px;color:${colored}">المجموع الكلي</td>
+              <td style="color:#dc2626;font-weight:800">${fmt(totInv)}</td>
+              <td style="color:#16a34a;font-weight:800">${fmt(totPay)}</td>
+              <td style="color:${totRem>0?'#ea580c':'#16a34a'};font-weight:800">${fmt(Math.abs(totRem))}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function exportAllStatementPDF() {
+  const data = _allStmtRawData;
+  if(!data) return;
+  const cur = _allStmtCur;
+  const info = await getCompanyInfo();
+  const printDate = new Date().toLocaleDateString('en-GB');
+  const isIQD = cur==='IQD';
+  const fmt = n => isIQD ? Number(n).toLocaleString('en')+' IQD' : '$'+Number(n).toLocaleString('en');
+  const label = isIQD ? 'دينار عراقي (IQD)' : 'دولار أمريكي (USD)';
+  const emoji = isIQD ? '💰' : '💵';
+  const headColor = isIQD ? '#166534' : '#1e40af';
+  const headBg = isIQD ? 'linear-gradient(135deg,#166534,#16a34a)' : 'linear-gradient(135deg,#1e40af,#3b82f6)';
+  const thBg = isIQD ? '#f0fdf4' : '#eff6ff';
+
+  const filtered = data.map(c=>({
+    ...c,
+    inv: isIQD?c.iqd.inv:c.usd.inv,
+    pay: isIQD?c.iqd.pay:c.usd.pay,
+  })).filter(c=>c.inv>0||c.pay>0);
+
+  const totInv = filtered.reduce((s,c)=>s+c.inv,0);
+  const totPay = filtered.reduce((s,c)=>s+c.pay,0);
+  const totRem = totInv-totPay;
+
+  const win = window.open('','_blank','width=900,height=1200');
+  win.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>كشف حساب الكل - ${label}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',sans-serif}
+  body{background:#fff;direction:rtl}
+  @media print{@page{size:A4;margin:8mm} body{margin:0}}
+  .header{background:linear-gradient(135deg,#0369a1,#0ea5e9);padding:16px 24px;color:#fff;text-align:center}
+  .company{font-size:20px;font-weight:800}
+  .sub{font-size:11px;opacity:.85;margin-top:3px}
+  .info-bar{background:#f0f9ff;border-bottom:2px solid #bae6fd;padding:8px 20px;display:flex;justify-content:space-between;font-size:12px;color:#374151}
+  .cur-badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:800;background:${isIQD?'#dcfce7':'#dbeafe'};color:${headColor};margin:8px auto;text-align:center}
+  .summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 16px}
+  .sum-card{background:#f8fafc;border-radius:8px;padding:10px;text-align:center;border:1px solid #e2e8f0}
+  .sum-label{font-size:10px;color:#64748b;margin-bottom:3px}
+  .sum-val{font-size:13px;font-weight:800}
+  .sec-head{padding:9px 16px;color:#fff;font-weight:700;font-size:13px;background:${headBg}}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{padding:8px 10px;text-align:right;font-weight:700;border-bottom:1px solid #e2e8f0;background:${thBg};color:${headColor}}
+  td{padding:7px 10px;border-bottom:1px solid #f1f5f9}
+  .tot{background:${thBg};border-top:2px solid ${isIQD?'#86efac':'#93c5fd'};font-weight:800}
+  .footer{padding:7px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:12px}
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="company">${info.company||'نظام حسابات المناديب'}</div>
+    <div class="sub">${info.address||''}${info.phone?' | 📞 '+info.phone:''}</div>
+  </div>
+  <div class="info-bar">
+    <span>تاريخ الطباعة: <strong>${printDate}</strong></span>
+    <span>العملة: <strong>${label}</strong></span>
+    <span>المندوب: <strong>${info.rep||currentUser.name||currentUser.email}</strong></span>
+    <span>عدد الزبائن: <strong>${filtered.length}</strong></span>
+  </div>
+  <div style="text-align:center;padding:6px">
+    <span class="cur-badge">${emoji} كشف حسابات جميع الزبائن — ${label}</span>
+  </div>
+  <div class="summary">
+    <div class="sum-card"><div class="sum-label">إجمالي الفواتير</div><div class="sum-val" style="color:#dc2626">${fmt(totInv)}</div></div>
+    <div class="sum-card"><div class="sum-label">إجمالي التحصيل</div><div class="sum-val" style="color:#16a34a">${fmt(totPay)}</div></div>
+    <div class="sum-card"><div class="sum-label">إجمالي المتبقي</div><div class="sum-val" style="color:${totRem>0?'#ea580c':'#16a34a'}">${fmt(Math.abs(totRem))}${totRem<=0?' ✓':''}</div></div>
+  </div>
+  <div class="sec-head">${emoji} تفاصيل الحسابات — ${label}</div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>الزبون</th><th>المنطقة</th>
+      <th>إجمالي الفواتير</th><th>إجمالي التسديد</th><th>الرصيد المتبقي</th><th>الحالة</th>
+    </tr></thead>
+    <tbody>
+      ${filtered.map((c,i)=>{
+        const rem=c.inv-c.pay;
+        return `<tr style="background:${i%2===0?'#f8fafc':'#fff'}">
+          <td style="color:#64748b">${i+1}</td>
+          <td style="font-weight:700">${c.name}</td>
+          <td style="color:#64748b">${c.area||'—'}</td>
+          <td style="color:#dc2626;font-weight:700">${fmt(c.inv)}</td>
+          <td style="color:#16a34a;font-weight:700">${fmt(c.pay)}</td>
+          <td style="font-weight:800;color:${rem>0?'#ea580c':'#16a34a'}">${fmt(Math.abs(rem))}</td>
+          <td style="color:${rem>0?'#ea580c':'#16a34a'};font-weight:700">${rem>0?'متبقي':'مسدّد ✓'}</td>
+        </tr>`;
+      }).join('')}
+      <tr class="tot">
+        <td colspan="3" style="padding:9px 10px;color:${headColor}">المجموع الكلي</td>
+        <td style="color:#dc2626">${fmt(totInv)}</td>
+        <td style="color:#16a34a">${fmt(totPay)}</td>
+        <td style="color:${totRem>0?'#ea580c':'#16a34a'}">${fmt(Math.abs(totRem))}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="footer">
+    <span>${info.company||'نظام حسابات المناديب'}</span>
+    <span>طُبع بتاريخ: ${printDate}</span>
+  </div>
+  <script>
+    document.fonts.ready.then(()=>{ setTimeout(()=>window.print(),400); });
+    window.onafterprint = ()=>window.close();
+  <\/script>
+<\/body><\/html>`);
+  win.document.close();
+}
+
+
+// ═══ COMPANY SETTINGS ═══
+let _companyInfoCache = null;
+
+async function getCompanyInfo() {
+  if(_companyInfoCache) return _companyInfoCache;
+  try {
+    const {data} = await sb.from('company_settings').select('*').eq('user_id', currentUser.id).single();
+    _companyInfoCache = data || {};
+    return _companyInfoCache;
+  } catch(e) {
+    // fallback to localStorage
+    try { return JSON.parse(localStorage.getItem('companyInfo')||'{}'); } catch(e){ return {}; }
+  }
+}
+
+async function saveCompanyInfo(info) {
+  _companyInfoCache = info;
+  try {
+    const {data: existing} = await sb.from('company_settings').select('id').eq('user_id', currentUser.id).single();
+    if(existing) {
+      await sb.from('company_settings').update({...info, updated_at: new Date().toISOString()}).eq('user_id', currentUser.id);
+    } else {
+      await sb.from('company_settings').insert({...info, user_id: currentUser.id});
+    }
+  } catch(e) {
+    localStorage.setItem('companyInfo', JSON.stringify(info));
+  }
+}
+
+async function renderSettings() {
+  const info = await getCompanyInfo();
+  $('content').innerHTML = `
+    <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0 0 6px">إعدادات الشركة</h2>
+    <p style="color:#94a3b8;font-size:13px;margin:0 0 24px">هذه المعلومات ستظهر في كشف الحساب ووصل القبض</p>
+    <div class="card fade" style="padding:28px;max-width:600px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">اسم الشركة *</label>
+          <input class="inp" id="s-company" value="${esc(info.company||'')}" placeholder="شركة دايون للتوزيع"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">اسم المندوب</label>
+          <input class="inp" id="s-rep" value="${esc(info.rep||'')}" placeholder="اسم المندوب الافتراضي"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">رقم الهاتف</label>
+          <input class="inp" id="s-phone" value="${esc(info.phone||'')}" placeholder="07xx-xxxxxxx"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">البريد الإلكتروني</label>
+          <input class="inp" id="s-email" value="${esc(info.email||'')}" placeholder="info@company.com"/>
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">العنوان</label>
+        <input class="inp" id="s-address" value="${esc(info.address||'')}" placeholder="المدينة - الحي - الشارع"/>
+      </div>
+      <div style="margin-bottom:24px">
+        <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">شعار الشركة (URL صورة اختياري)</label>
+        <input class="inp" id="s-logo" value="${esc(info.logo||'')}" placeholder="https://example.com/logo.png"/>
+        ${info.logo?`<img src="${esc(info.logo)}" style="margin-top:10px;height:50px;border-radius:8px;border:1px solid #e2e8f0" onerror="this.style.display='none'"/>`:''}
+      </div>
+      <div id="s-msg" style="display:none;margin-bottom:12px"></div>
+      <button class="btn btn-primary" onclick="doSaveSettings()" style="padding:12px 28px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">
+        💾 حفظ الإعدادات
+      </button>
+    </div>`;
+}
+
+async function doSaveSettings() {
+  const info = {
+    company: $('s-company').value.trim(),
+    rep: $('s-rep').value.trim(),
+    phone: $('s-phone').value.trim(),
+    email: $('s-email').value.trim(),
+    address: $('s-address').value.trim(),
+    logo: $('s-logo').value.trim(),
+  };
+  if(!info.company){ $('s-msg').innerHTML='<div class="alert-err">اسم الشركة مطلوب</div>'; $('s-msg').style.display='block'; return; }
+  await saveCompanyInfo(info);
+  $('s-msg').innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px 14px;border-radius:10px;font-size:13px">✅ تم حفظ الإعدادات بنجاح</div>';
+  $('s-msg').style.display='block';
+  setTimeout(()=>{ $('s-msg').style.display='none'; },3000);
+}
+
+// ═══ RECEIPT PDF ═══
+async function printReceiptPDF(payIdx) {
+  const pay = _pays[payIdx];
+  if(!pay) return;
+  const cust = _custs.find(c=>c.id===pay.customer_id);
+  const info = await getCompanyInfo();
+  const cur = pay.currency;
+  const curLabel = cur==='IQD' ? 'دينار عراقي' : 'دولار أمريكي';
+  const fmtN = (n) => cur==='USD' ? '$'+Number(n).toLocaleString('en') : Number(n).toLocaleString('en')+' IQD';
+  const printDate = new Date().toLocaleDateString('en-GB');
+  const receiptNum = 'RCP-'+pay.id.substring(0,6).toUpperCase();
+
+  // Calculate balance
+  let totalInv=0, totalPaid=0;
+  try {
+    const [allInvs,allPays] = await Promise.all([getInvoices(cust?.id),getPayments(cust?.id)]);
+    allInvs.filter(i=>i.currency===cur).forEach(i=>totalInv+=parseFloat(i.amount||0));
+    allPays.filter(p=>p.currency===cur).forEach(p=>totalPaid+=parseFloat(p.amount||0));
+  } catch(e){}
+  const remaining = totalInv - totalPaid;
+  const remColor = remaining<=0?'#16a34a':'#dc2626';
+  const companyName = info.company || 'نظام حسابات المناديب';
+  const repName = info.rep || currentUser.name || currentUser.email;
+
+  // Open print window
+  const win = window.open('','_blank','width=600,height=850');
+  win.document.write(`<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>وصل قبض - ${cust?.name||''}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Cairo',sans-serif}
+  body{background:#fff;direction:rtl}
+  @media print{
+    body{margin:0}
+    @page{size:A5;margin:0}
+  }
+  .page{width:148mm;min-height:210mm;background:#fff;display:flex;flex-direction:column;border:1.5px solid #0284c7}
+  .header{background:linear-gradient(135deg,#0369a1,#0ea5e9);padding:18px 24px;color:#fff;text-align:center}
+  .header .company{font-size:19px;font-weight:800;margin-bottom:4px}
+  .header .sub{font-size:10px;opacity:.85;display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+  .badge{background:#f0fdf4;border-bottom:2px dashed #86efac;padding:10px 20px;display:flex;justify-content:space-between;align-items:center}
+  .badge .title{font-size:15px;font-weight:800;color:#166534}
+  .badge .sub2{font-size:10px;color:#64748b}
+  .badge .num{font-size:13px;font-weight:800;color:#0284c7}
+  .body{padding:14px 20px;flex:1;display:flex;flex-direction:column;gap:10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  td{padding:7px 10px;border:1px solid #e2e8f0}
+  td:first-child{color:#64748b;font-weight:600;width:36%;background:#f8fafc}
+  td:last-child{font-weight:600;color:#1e293b}
+  .amount-box{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:8px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+  .amount-box .label{font-size:11px;color:#16a34a;font-weight:700}
+  .amount-box .val{font-size:22px;font-weight:800;color:#15803d}
+  .summary{border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden}
+  .summary .head{background:#1e293b;color:#fff;padding:7px 14px;font-size:12px;font-weight:700}
+  .summary .grid{display:grid;grid-template-columns:1fr 1fr 1fr}
+  .summary .cell{padding:8px 10px;text-align:center;border-left:1px solid #f1f5f9}
+  .summary .cell-label{font-size:9px;color:#64748b;margin-bottom:3px}
+  .summary .cell-val{font-size:12px;font-weight:800}
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:auto;padding-top:10px}
+  .sig{text-align:center}
+  .sig-line{height:36px;border-bottom:1.5px dashed #cbd5e1;margin-bottom:5px}
+  .sig-label{font-size:10px;color:#94a3b8;font-weight:600}
+  .footer{background:#f8fafc;border-top:1px solid #e2e8f0;padding:7px 16px;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    ${info.logo?`<img src="${info.logo}" style="height:38px;margin-bottom:6px;border-radius:5px" onerror="this.style.display='none'"/><br/>`:''}
+    <div class="company">${companyName}</div>
+    <div class="sub">
+      ${info.address?`<span>📍 ${info.address}</span>`:''}
+      ${info.phone?`<span>📞 ${info.phone}</span>`:''}
+      ${info.email?`<span>✉️ ${info.email}</span>`:''}
+    </div>
+  </div>
+
+  <div class="badge">
+    <div>
+      <div class="title">وصل استلام دفعة</div>
+      <div class="sub2">Receipt of Payment</div>
+    </div>
+    <div style="text-align:left">
+      <div style="font-size:10px;color:#64748b">رقم الوصل</div>
+      <div class="num">${receiptNum}</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <table>
+      <tr><td>الزبون</td><td>${cust?.name||'—'}</td></tr>
+      <tr><td>تاريخ الاستلام</td><td>${pay.date}</td></tr>
+      <tr><td>العملة</td><td>${curLabel}</td></tr>
+      <tr><td>المندوب</td><td>${repName}</td></tr>
+      ${pay.notes?`<tr><td>ملاحظات</td><td>${pay.notes}</td></tr>`:''}
+    </table>
+
+    <div class="amount-box">
+      <div>
+        <div class="label">المبلغ المستلم</div>
+        <div style="font-size:9px;color:#64748b">Amount Received</div>
+      </div>
+      <div class="val">${fmtN(pay.amount)}</div>
+    </div>
+
+    <div class="summary">
+      <div class="head">ملخص الحساب</div>
+      <div class="grid">
+        <div class="cell" style="border-right:1px solid #f1f5f9">
+          <div class="cell-label">إجمالي الفواتير</div>
+          <div class="cell-val" style="color:#dc2626">${fmtN(totalInv)}</div>
+        </div>
+        <div class="cell" style="border-right:1px solid #f1f5f9">
+          <div class="cell-label">إجمالي المدفوع</div>
+          <div class="cell-val" style="color:#16a34a">${fmtN(totalPaid)}</div>
+        </div>
+        <div class="cell" style="background:${remaining>0?'#fff7ed':'#f0fdf4'}">
+          <div class="cell-label">الرصيد المتبقي</div>
+          <div class="cell-val" style="color:${remColor}">${fmtN(Math.abs(remaining))}${remaining<=0?' ✓':''}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sigs">
+      <div class="sig"><div class="sig-line"></div><div class="sig-label">توقيع المستلم</div></div>
+      <div class="sig"><div class="sig-line"></div><div class="sig-label">توقيع المندوب</div></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>${companyName}</span>
+    <span>طُبع بتاريخ: ${printDate}</span>
+  </div>
+</div>
+<script>
+  // Auto print after fonts load
+  document.fonts.ready.then(()=>{
+    setTimeout(()=>{ window.print(); }, 400);
+  });
+  window.onafterprint = ()=>window.close();
+<\/script>
+<\/body><\/html>`);
+  win.document.close();
+}
+
+// ═══ ALERTS SYSTEM ═══
+async function checkAlerts() {
+  try {
+    const [custs, allInvs, allPays] = await Promise.all([
+      getCustomers(), getInvoices(), getPayments()
+    ]);
+    const alerts = [];
+    const nowMs = new Date().getTime();
+
+    custs.forEach(c => {
+      const invs = allInvs.filter(i=>i.customer_id===c.id);
+      const pays = allPays.filter(p=>p.customer_id===c.id);
+
+      // Balance per currency
+      ['IQD','USD'].forEach(cur => {
+        const totInv = invs.filter(i=>i.currency===cur).reduce((s,i)=>s+parseFloat(i.amount||0),0);
+        const totPay = pays.filter(p=>p.currency===cur).reduce((s,p)=>s+parseFloat(p.amount||0),0);
+        const bal = totInv - totPay;
+
+        // Credit limit alert
+        const limit = cur==='IQD' ? c.limit_iqd : c.limit_usd;
+        if(limit && bal > limit) {
+          alerts.push({
+            type: 'limit',
+            level: 'danger',
+            customer: c.name,
+            custId: c.id,
+            msg: `تجاوز حد الدين بـ ${cur}`,
+            detail: `الرصيد: ${Number(bal).toLocaleString('en')} ${cur} | الحد: ${Number(limit).toLocaleString('en')} ${cur}`,
+            cur
+          });
+        }
+      });
+
+      // Payment period alert - check last payment date
+      if(c.payment_days) {
+        const custPays = pays.sort((a,b)=>b.date.localeCompare(a.date));
+        const lastPayDate = custPays[0]?.date;
+        const checkDate = lastPayDate || (invs.sort((a,b)=>a.date.localeCompare(b.date))[0]?.date);
+        if(checkDate) {
+          const daysDiff = Math.floor((nowMs - new Date(checkDate).getTime()) / (1000*60*60*24));
+          if(daysDiff > c.payment_days) {
+            // Check if still has balance
+            const totInvAll = allInvs.filter(i=>i.customer_id===c.id).reduce((s,i)=>s+parseFloat(i.amount||0),0);
+            const totPayAll = allPays.filter(p=>p.customer_id===c.id).reduce((s,p)=>s+parseFloat(p.amount||0),0);
+            if(totInvAll > totPayAll) {
+              alerts.push({
+                type: 'overdue',
+                level: 'warning',
+                customer: c.name,
+                custId: c.id,
+                msg: `تجاوز فترة السداد`,
+                detail: `آخر دفعة: ${lastPayDate||'لا يوجد'} | مضى ${daysDiff} يوم | الفترة المسموحة: ${c.payment_days} يوم`,
+              });
+            }
+          }
+        }
+      }
+    });
+
+    // Update badge
+    const badge = $('alert-badge');
+    if(badge) {
+      if(alerts.length > 0) {
+        badge.textContent = alerts.length > 9 ? '9+' : alerts.length;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    window._alerts = alerts;
+    return alerts;
+  } catch(e) { return []; }
+}
+
+async function renderAlerts() {
+  $('content').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">جارٍ التحميل...</div>';
+  const alerts = await checkAlerts();
+
+  const danger  = alerts.filter(a=>a.level==='danger');
+  const warning = alerts.filter(a=>a.level==='warning');
+
+  $('content').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">التنبيهات</h2>
+        <p style="color:#94a3b8;margin:2px 0 0;font-size:13px">${alerts.length} تنبيه نشط</p>
+      </div>
+      <button onclick="checkAlerts().then(()=>renderAlerts())" style="padding:9px 16px;border-radius:10px;background:#f1f5f9;border:none;cursor:pointer;font-family:Cairo,sans-serif;font-size:13px;font-weight:600;color:#475569">
+        🔄 تحديث
+      </button>
+    </div>
+
+    ${alerts.length===0 ? `
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:48px;margin-bottom:12px">✅</div>
+        <div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:6px">لا توجد تنبيهات</div>
+        <div style="font-size:13px;color:#94a3b8">كل الزبائن ضمن الحدود المسموحة</div>
+      </div>` : ''}
+
+    ${danger.length>0?`
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:16px">🔴</span>
+          <span style="font-size:15px;font-weight:800;color:#dc2626">تجاوز حد الدين (${danger.length})</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${danger.map(a=>`
+            <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+              <div>
+                <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:3px">🏪 ${esc(a.customer)}</div>
+                <div style="font-size:12px;font-weight:700;color:#dc2626">${a.msg}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px">${a.detail}</div>
+              </div>
+              <button onclick="viewStatement('${a.custId}','${esc(a.customer)}')" style="padding:7px 14px;border-radius:8px;background:#dc2626;color:#fff;border:none;cursor:pointer;font-family:Cairo,sans-serif;font-size:12px;font-weight:700">
+                عرض الحساب
+              </button>
+            </div>`).join('')}
+        </div>
+      </div>`:''}
+
+    ${warning.length>0?`
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:16px">🟡</span>
+          <span style="font-size:15px;font-weight:800;color:#d97706">تجاوز فترة السداد (${warning.length})</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${warning.map(a=>`
+            <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+              <div>
+                <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:3px">🏪 ${esc(a.customer)}</div>
+                <div style="font-size:12px;font-weight:700;color:#d97706">${a.msg}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px">${a.detail}</div>
+              </div>
+              <button onclick="viewStatement('${a.custId}','${esc(a.customer)}')" style="padding:7px 14px;border-radius:8px;background:#d97706;color:#fff;border:none;cursor:pointer;font-family:Cairo,sans-serif;font-size:12px;font-weight:700">
+                عرض الحساب
+              </button>
+            </div>`).join('')}
+        </div>
+      </div>`:''}`;
+}
+
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.sidebar-item').forEach(b=>b.classList.remove('active'));
+  const nb = $('nav-'+page);
+  if(nb) nb.classList.add('active');
+  $('page-title').textContent = pages.find(p=>p.id===page)?.label||'';
+  $('content').innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">جارٍ التحميل...</div>';
+  closeModal();
+  const fn = {dashboard:renderDashboard,customers:renderCustomers,invoices:()=>renderInvoices(),payments:()=>renderPayments(),statement:renderStatement,allstatement:renderAllStatements,alerts:renderAlerts,users:renderUsers,settings:renderSettings}[page];
+  if(fn) fn();
+}
+
+// ═══ DASHBOARD ═══
+async function renderDashboard() {
+  try {
+    const [custs,invs,pays,users] = await Promise.all([
+      getCustomers(),
+      getInvoices(),
+      getPayments(),
+      currentUser.role==='admin'?dbQuery('profiles'):Promise.resolve([])
+    ]);
+    const sumC = (arr,cur) => arr.filter(x=>x.currency===cur).reduce((s,x)=>s+parseFloat(x.amount||0),0);
+    const invIQD=sumC(invs,'IQD'),invUSD=sumC(invs,'USD'),payIQD=sumC(pays,'IQD'),payUSD=sumC(pays,'USD');
+    const cards = [
+      {label:'الديون المتبقية (IQD)',val:fmt(invIQD-payIQD,'IQD'),color:'#ef4444',bg:'#fef2f2',icon:'💰'},
+      {label:'الديون المتبقية (USD)',val:fmt(invUSD-payUSD,'USD'),color:'#3b82f6',bg:'#eff6ff',icon:'💵'},
+      {label:'إجمالي التحصيل (IQD)',val:fmt(payIQD,'IQD'),color:'#10b981',bg:'#f0fdf4',icon:'✅'},
+      {label:'إجمالي التحصيل (USD)',val:fmt(payUSD,'USD'),color:'#0ea5e9',bg:'#f0f9ff',icon:'✅'},
+      {label:'عدد الزبائن',val:custs.length,color:'#8b5cf6',bg:'#f5f3ff',icon:'👥'},
+      ...(currentUser.role==='admin'?[{label:'عدد المستخدمين',val:users.length,color:'#f97316',bg:'#fff7ed',icon:'👤'}]:[]),
+    ];
+    $('content').innerHTML = `
+      <div style="margin-bottom:8px"><h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">أهلاً، ${esc(currentUser.name)} 👋</h2><p style="color:#94a3b8;margin:4px 0 20px;font-size:13px">لوحة التحكم الرئيسية</p></div>
+      <div class="grid3">${cards.map(c=>`
+        <div class="card fade" style="padding:20px;background:${c.bg};border-color:${c.color}22">
+          <div style="font-size:28px;margin-bottom:8px">${c.icon}</div>
+          <div style="font-size:20px;font-weight:800;color:${c.color}">${c.val}</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px;font-weight:600">${c.label}</div>
+        </div>`).join('')}
+      </div>`;
+  } catch(e) { $('content').innerHTML=`<div class="alert-err">${e.message}</div>`; }
+}
+
+// ═══ CUSTOMERS ═══
+async function renderCustomers(search='') {
+  try {
+    let custs = await getCustomers();
+    _custs = custs;
+    if(search) custs = custs.filter(c=>c.name.includes(search)||c.phone?.includes(search)||c.area?.includes(search));
+    $('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div><h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">الزبائن</h2><p style="color:#94a3b8;margin:2px 0 0;font-size:13px">${custs.length} زبون</p></div>
+        <button class="btn btn-primary" onclick="openAddCustomer()" style="padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:6px">+ إضافة زبون</button>
+      </div>
+      <div style="position:relative;margin-bottom:16px">
+        <input class="inp" id="cust-search" placeholder="بحث بالاسم أو الهاتف أو المنطقة..." value="${esc(search)}" style="padding-right:40px" oninput="renderCustomers(this.value)"/>
+        <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#94a3b8" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <div class="grid2 fade">
+        ${custs.length===0?'<div style="color:#94a3b8;text-align:center;padding:40px;grid-column:1/-1">لا توجد زبائن</div>':custs.map(c=>`
+          <div class="card" style="padding:18px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <div style="width:42px;height:42px;background:#eff6ff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏪</div>
+              <div>
+                <div style="font-weight:700;color:#1e293b;font-size:15px">${esc(c.name)}</div>
+                ${c.area?`<div style="font-size:12px;color:#94a3b8">📍 ${esc(c.area)}</div>`:''}
+              </div>
+            </div>
+            ${c.phone?`<div style="font-size:13px;color:#475569;margin-bottom:8px">📞 ${esc(c.phone)}</div>`:''}
+            ${c.notes?`<div style="font-size:12px;color:#94a3b8;background:#f8fafc;padding:8px;border-radius:8px;margin-bottom:10px">${esc(c.notes)}</div>`:''}
+            <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9">
+              <button class="btn" onclick="viewStatement('${c.id}','${esc(c.name)}')" style="flex:1;padding:7px;border-radius:10px;background:#eff6ff;color:#0284c7;font-size:12px;font-weight:700;font-family:Cairo,sans-serif">👁 كشف الحساب</button>
+              <button class="btn" onclick="openEditCustomer('${c.id}','${esc(c.name)}','${esc(c.phone||'')}','${esc(c.area||'')}','${esc(c.notes||'')}',${c.limit_iqd||0},${c.limit_usd||0},${c.payment_days||0})" style="padding:7px 10px;border-radius:10px;background:#f8fafc;color:#475569">✏️</button>
+              <button class="btn" onclick="deleteCustomer('${c.id}')" style="padding:7px 10px;border-radius:10px;background:#fef2f2;color:#ef4444">🗑</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  } catch(e) { $('content').innerHTML=`<div class="alert-err">${e.message}</div>`; }
+}
+
+function openAddCustomer() {
+  showModal('إضافة زبون جديد', `
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">اسم الزبون *</label><input class="inp" id="f-name" placeholder="اسم المحل أو الزبون"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">رقم الهاتف</label><input class="inp" id="f-phone" placeholder="07xx-xxxxxxx"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المنطقة</label><input class="inp" id="f-area" placeholder="المدينة - الحي"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2" placeholder="أي ملاحظات..."></textarea></div>
+
+    <!-- Limits -->
+    <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:10px">⚠️ حدود التنبيه (اختياري)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">حد الدين (IQD)</label>
+          <input class="inp" id="f-limit-iqd" type="number" placeholder="0"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">حد الدين (USD)</label>
+          <input class="inp" id="f-limit-usd" type="number" placeholder="0"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">فترة السداد (أيام)</label>
+          <input class="inp" id="f-pay-days" type="number" placeholder="مثال: 30"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Opening Balance -->
+    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:14px;margin-bottom:18px">
+      <div style="font-size:13px;font-weight:700;color:#0284c7;margin-bottom:10px">📊 رصيد افتتاحي (اختياري)</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">أدخل الرصيد السابق للزبون قبل استخدام التطبيق</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">المبلغ</label>
+          <input class="inp" id="f-ob-amount" type="number" placeholder="0" min="0"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">العملة</label>
+          <select class="inp" id="f-ob-cur">
+            <option value="IQD">دينار (IQD)</option>
+            <option value="USD">دولار (USD)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">النوع</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;background:#fff" id="lbl-debit">
+            <input type="radio" name="ob-type" id="f-ob-debit" value="debit" checked onchange="highlightObType()"/>
+            <span style="font-size:13px;font-weight:600;color:#dc2626">🔴 مدين (عليه دين)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;background:#fff" id="lbl-credit">
+            <input type="radio" name="ob-type" id="f-ob-credit" value="credit" onchange="highlightObType()"/>
+            <span style="font-size:13px;font-weight:600;color:#16a34a">🟢 دائن (له رصيد)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveCustomer(null)" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+  highlightObType();
+}
+
+function highlightObType() {
+  const isDebit = document.getElementById('f-ob-debit')?.checked;
+  const lblD = document.getElementById('lbl-debit');
+  const lblC = document.getElementById('lbl-credit');
+  if(!lblD||!lblC) return;
+  if(isDebit) {
+    lblD.style.border = '1.5px solid #dc2626';
+    lblD.style.background = '#fef2f2';
+    lblC.style.border = '1.5px solid #e2e8f0';
+    lblC.style.background = '#fff';
+  } else {
+    lblC.style.border = '1.5px solid #16a34a';
+    lblC.style.background = '#f0fdf4';
+    lblD.style.border = '1.5px solid #e2e8f0';
+    lblD.style.background = '#fff';
+  }
+}
+
+function openEditCustomer(id,name,phone,area,notes,limitIqd,limitUsd,payDays) {
+  showModal('تعديل الزبون', `
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">اسم الزبون *</label><input class="inp" id="f-name" value="${name}"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">رقم الهاتف</label><input class="inp" id="f-phone" value="${phone}"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المنطقة</label><input class="inp" id="f-area" value="${area}"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2">${notes}</textarea></div>
+    <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:12px;padding:14px;margin-bottom:18px">
+      <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:10px">⚠️ حدود التنبيه</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div><label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">حد الدين (IQD)</label><input class="inp" id="f-limit-iqd" type="number" value="${limitIqd||''}"/></div>
+        <div><label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">حد الدين (USD)</label><input class="inp" id="f-limit-usd" type="number" value="${limitUsd||''}"/></div>
+        <div><label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">فترة السداد (أيام)</label><input class="inp" id="f-pay-days" type="number" value="${payDays||''}"/></div>
+      </div>
+    </div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveCustomer('${id}')" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+async function saveCustomer(id) {
+  const name=$('f-name').value.trim(),phone=$('f-phone').value.trim(),area=$('f-area').value.trim(),notes=$('f-notes').value.trim();
+  const limitIqd = parseFloat($('f-limit-iqd')?.value||0)||null;
+  const limitUsd = parseFloat($('f-limit-usd')?.value||0)||null;
+  const payDays  = parseInt($('f-pay-days')?.value||0)||null;
+  if(!name){$('f-err').textContent='الاسم مطلوب';$('f-err').style.display='block';return;}
+  try {
+    let custId = id;
+    if(id) {
+      await dbUpdate('customers',id,{name,phone,area,notes,limit_iqd:limitIqd,limit_usd:limitUsd,payment_days:payDays});
+    } else {
+      const newCust = await dbInsert('customers',{name,phone,area,notes,limit_iqd:limitIqd,limit_usd:limitUsd,payment_days:payDays,rep_id:currentUser.id});
+      custId = newCust.id;
+
+      // Handle opening balance
+      const obAmount = parseFloat($('f-ob-amount')?.value||0);
+      const obCur = $('f-ob-cur')?.value || 'IQD';
+      const obType = document.querySelector('input[name="ob-type"]:checked')?.value || 'debit';
+
+      if(obAmount > 0) {
+        if(obType === 'debit') {
+          // مدين = فاتورة افتتاحية
+          await dbInsert('invoices', {
+            invoice_number: 'OB-001',
+            customer_id: custId,
+            amount: obAmount,
+            currency: obCur,
+            date: today(),
+            notes: 'رصيد افتتاحي - مدين',
+            rep_id: currentUser.id
+          });
+        } else {
+          // دائن = تسديد افتتاحي (الزبون دفع مسبقاً)
+          await dbInsert('payments', {
+            customer_id: custId,
+            amount: obAmount,
+            currency: obCur,
+            date: today(),
+            notes: 'رصيد افتتاحي - دائن',
+            rep_id: currentUser.id
+          });
+        }
+      }
+    }
+    closeModal(); showToast(id?'تم التعديل':'تمت الإضافة'); renderCustomers();
+  } catch(e){$('f-err').textContent=e.message;$('f-err').style.display='block';}
+}
+
+async function deleteCustomer(id) {
+  if(!confirm('هل تريد حذف هذا الزبون؟')) return;
+  try { await dbDelete('customers',id); showToast('تم الحذف'); renderCustomers(); }
+  catch(e){showToast(e.message,false);}
+}
+
+// ═══ INVOICES ═══
+// Global cache
+let _custs = [];
+let _invs = [];
+let _pays = [];
+let _preselectedCustId = null;
+
+async function renderInvoices(custId=null, custName=null) {
+  _preselectedCustId = custId;
+  try {
+    [_invs, _custs] = await Promise.all([getInvoices(custId), getCustomers()]);
+    const custMap = {};
+    _custs.forEach(c=>custMap[c.id]=c.name);
+    let nextNum = 'INV-001';
+    if(_invs.length>0){
+      const nums = _invs.map(i=>parseInt((i.invoice_number||'').replace(/\D/g,''))||0);
+      nextNum = 'INV-'+String(Math.max(...nums)+1).padStart(3,'0');
+    }
+    window._nextInvNum = nextNum;
+    $('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div>
+          <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">الفواتير</h2>
+          ${custName?`<p style="color:#0284c7;margin:2px 0 0;font-size:13px;font-weight:600">الزبون: ${esc(custName)}</p>`:''}
+        </div>
+        <button class="btn btn-primary" onclick="openAddInvoice()" style="padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;font-family:Cairo,sans-serif">+ إضافة فاتورة</button>
+      </div>
+      <div class="card fade" style="overflow:hidden">
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>رقم الفاتورة</th><th>الزبون</th><th>التاريخ</th><th>المبلغ</th><th>العملة</th><th>ملاحظات</th><th></th></tr></thead>
+            <tbody>
+              ${_invs.length===0?'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px">لا توجد فواتير</td></tr>':_invs.map((inv,idx)=>`
+                <tr>
+                  <td style="font-weight:700;color:#0284c7">${esc(inv.invoice_number)}</td>
+                  <td style="font-weight:600">${esc(custMap[inv.customer_id]||'—')}</td>
+                  <td style="color:#64748b">${inv.date}</td>
+                  <td style="font-weight:700">${fmt(inv.amount,inv.currency)}</td>
+                  <td><span class="${inv.currency==='USD'?'badge-usd':'badge-iqd'}">${inv.currency}</span></td>
+                  <td style="color:#94a3b8;font-size:12px">${esc(inv.notes||'')}</td>
+                  <td>
+                    <button class="btn" onclick="openEditInvoice(${idx})" style="padding:5px 8px;border-radius:8px;background:#eff6ff;color:#0284c7;font-size:12px;margin-left:4px">✏️</button>
+                    <button class="btn" onclick="deleteInvoice('${inv.id}')" style="padding:5px 8px;border-radius:8px;background:#fef2f2;color:#ef4444;font-size:12px">🗑</button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch(e){$('content').innerHTML=`<div class="alert-err">${e.message}</div>`;}
+}
+
+function custOptions(custs, selected='') {
+  return custs.map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${esc(c.name)}</option>`).join('');
+}
+
+function openAddInvoice() {
+  showModal('فاتورة جديدة', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">رقم الفاتورة</label><input class="inp" id="f-num" value="${window._nextInvNum||'INV-001'}"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">التاريخ *</label><input class="inp" id="f-date" type="date" value="${today()}"/></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الزبون *</label><select class="inp" id="f-cust"><option value="">-- اختر الزبون --</option>${custOptions(_custs,_preselectedCustId||'')}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المبلغ *</label><input class="inp" id="f-amount" type="number" placeholder="0"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">العملة</label><select class="inp" id="f-cur"><option value="IQD">دينار (IQD)</option><option value="USD">دولار (USD)</option></select></div>
+    </div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2"></textarea></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveInvoice(null)" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ الفاتورة</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+function openEditInvoice(idx) {
+  const inv = _invs[idx];
+  if(!inv) return;
+  showModal('تعديل الفاتورة', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">رقم الفاتورة</label><input class="inp" id="f-num" value="${esc(inv.invoice_number||'')}"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">التاريخ</label><input class="inp" id="f-date" type="date" value="${inv.date}"/></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الزبون</label><select class="inp" id="f-cust">${custOptions(_custs,inv.customer_id)}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المبلغ</label><input class="inp" id="f-amount" type="number" value="${inv.amount}"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">العملة</label><select class="inp" id="f-cur"><option value="IQD" ${inv.currency==='IQD'?'selected':''}>دينار (IQD)</option><option value="USD" ${inv.currency==='USD'?'selected':''}>دولار (USD)</option></select></div>
+    </div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2">${esc(inv.notes||'')}</textarea></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveInvoice('${inv.id}')" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+async function saveInvoice(id) {
+  const num=$('f-num').value.trim(),date=$('f-date').value,cust=$('f-cust').value,amount=parseFloat($('f-amount').value),cur=$('f-cur').value,notes=$('f-notes').value.trim();
+  if(!cust||!amount||!date){$('f-err').textContent='الرجاء إكمال الحقول المطلوبة';$('f-err').style.display='block';return;}
+  try {
+    const obj={invoice_number:num,customer_id:cust,amount,currency:cur,date,notes};
+    if(id) await dbUpdate('invoices',id,obj);
+    else await dbInsert('invoices',{...obj,rep_id:currentUser.id});
+    closeModal(); showToast(id?'تم التعديل':'تمت الإضافة'); renderInvoices();
+  } catch(e){$('f-err').textContent=e.message;$('f-err').style.display='block';}
+}
+
+async function deleteInvoice(id) {
+  if(!confirm('هل تريد حذف هذه الفاتورة؟')) return;
+  try { await dbDelete('invoices',id); showToast('تم الحذف'); renderInvoices(); }
+  catch(e){showToast(e.message,false);}
+}
+
+// ═══ PAYMENTS ═══
+async function renderPayments(custId=null, custName=null) {
+  _preselectedCustId = custId;
+  try {
+    [_pays, _custs] = await Promise.all([getPayments(custId), getCustomers()]);
+    const custMap={};
+    _custs.forEach(c=>custMap[c.id]=c.name);
+
+    // Get first and last date for default range
+    const allDates = _pays.map(p=>p.date).sort();
+    const minDate = allDates[0] || today();
+    const maxDate = allDates[allDates.length-1] || today();
+
+    $('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div>
+          <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">التسديدات</h2>
+          ${custName?`<p style="color:#0284c7;margin:2px 0 0;font-size:13px;font-weight:600">الزبون: ${esc(custName)}</p>`:''}
+        </div>
+        <button class="btn btn-primary" onclick="openAddPayment()" style="padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;font-family:Cairo,sans-serif">+ تسجيل تسديد</button>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">من تاريخ</label>
+            <input class="inp" id="f-date-from" type="date" value="${minDate}" style="width:150px" onchange="filterPayments()"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">إلى تاريخ</label>
+            <input class="inp" id="f-date-to" type="date" value="${today()}" style="width:150px" onchange="filterPayments()"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">العملة</label>
+            <select class="inp" id="f-pay-cur" style="width:130px" onchange="filterPayments()">
+              <option value="">الكل</option>
+              <option value="IQD">دينار (IQD)</option>
+              <option value="USD">دولار (USD)</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">الزبون</label>
+            <select class="inp" id="f-pay-cust" style="width:160px" onchange="filterPayments()">
+              <option value="">الكل</option>
+              ${_custs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+            </select>
+          </div>
+          <button onclick="resetPayFilters()" style="padding:9px 14px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;font-family:Cairo,sans-serif;font-size:12px;font-weight:600;cursor:pointer">
+            🔄 إعادة تعيين
+          </button>
+        </div>
+      </div>
+
+      <div id="pays-table-wrap"></div>`;
+
+    filterPayments();
+
+  } catch(e){$('content').innerHTML=`<div class="alert-err">${e.message}</div>`;}
+}
+
+function filterPayments() {
+  const dateFrom = $('f-date-from')?.value || '';
+  const dateTo   = $('f-date-to')?.value   || '';
+  const cur      = $('f-pay-cur')?.value   || '';
+  const custF    = $('f-pay-cust')?.value  || '';
+  const custMap  = {};
+  _custs.forEach(c=>custMap[c.id]=c.name);
+
+  let filtered = _pays.filter(p => {
+    if(dateFrom && p.date < dateFrom) return false;
+    if(dateTo   && p.date > dateTo)   return false;
+    if(cur      && p.currency !== cur) return false;
+    if(custF    && p.customer_id !== custF) return false;
+    return true;
+  });
+
+  // Totals
+  const totIQD = filtered.filter(p=>p.currency==='IQD').reduce((s,p)=>s+parseFloat(p.amount||0),0);
+  const totUSD = filtered.filter(p=>p.currency==='USD').reduce((s,p)=>s+parseFloat(p.amount||0),0);
+
+  const wrap = $('pays-table-wrap');
+  if(!wrap) return;
+
+  wrap.innerHTML = `
+    <!-- Totals -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="card" style="padding:14px;text-align:center;background:#f0fdf4;border-color:#bbf7d0">
+        <div style="font-size:11px;color:#64748b;margin-bottom:3px">عدد التسديدات</div>
+        <div style="font-weight:800;color:#1e293b;font-size:18px">${filtered.length}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center;background:#f0fdf4;border-color:#bbf7d0">
+        <div style="font-size:11px;color:#64748b;margin-bottom:3px">إجمالي (IQD)</div>
+        <div style="font-weight:800;color:#16a34a;font-size:15px">${fmt(totIQD,'IQD')}</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center;background:#eff6ff;border-color:#bfdbfe">
+        <div style="font-size:11px;color:#64748b;margin-bottom:3px">إجمالي (USD)</div>
+        <div style="font-weight:800;color:#1d4ed8;font-size:15px">${fmt(totUSD,'USD')}</div>
+      </div>
+    </div>
+
+    <div class="card fade" style="overflow:hidden">
+      <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;color:#1e293b;font-size:13px">قائمة التسديدات</span>
+        <span style="font-size:12px;color:#64748b">${filtered.length} سجل</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>#</th><th>الزبون</th><th>التاريخ</th><th>المبلغ المستلم</th><th>العملة</th><th>ملاحظات</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${filtered.length===0
+              ? '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px">لا توجد تسديدات بهذا الفلتر</td></tr>'
+              : filtered.map((p,i)=>{
+                  const idx = _pays.indexOf(p);
+                  return `<tr>
+                    <td style="color:#64748b">${i+1}</td>
+                    <td style="font-weight:700">${esc(custMap[p.customer_id]||'—')}</td>
+                    <td style="color:#64748b">${p.date}</td>
+                    <td style="font-weight:700;color:#16a34a">${fmt(p.amount,p.currency)}</td>
+                    <td><span class="${p.currency==='USD'?'badge-usd':'badge-iqd'}">${p.currency}</span></td>
+                    <td style="color:#94a3b8;font-size:12px">${esc(p.notes||'')}</td>
+                    <td>
+                      <button class="btn" onclick="printReceiptPDF(${idx})" style="padding:5px 8px;border-radius:8px;background:#f0fdf4;color:#16a34a;font-size:12px;margin-left:4px" title="طباعة وصل">🖨️</button>
+                      <button class="btn" onclick="openEditPayment(${idx})" style="padding:5px 8px;border-radius:8px;background:#eff6ff;color:#0284c7;font-size:12px;margin-left:4px">✏️</button>
+                      <button class="btn" onclick="deletePayment('${p.id}')" style="padding:5px 8px;border-radius:8px;background:#fef2f2;color:#ef4444;font-size:12px">🗑</button>
+                    </td>
+                  </tr>`;
+                }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function resetPayFilters() {
+  const allDates = _pays.map(p=>p.date).sort();
+  const min = allDates[0]||today();
+  if($('f-date-from')) $('f-date-from').value = min;
+  if($('f-date-to'))   $('f-date-to').value   = today();
+  if($('f-pay-cur'))   $('f-pay-cur').value    = '';
+  if($('f-pay-cust'))  $('f-pay-cust').value   = '';
+  filterPayments();
+}
+
+function openAddPayment() {
+  showModal('تسجيل تسديد جديد', `
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الزبون *</label><select class="inp" id="f-cust"><option value="">-- اختر الزبون --</option>${custOptions(_custs,_preselectedCustId||'')}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المبلغ *</label><input class="inp" id="f-amount" type="number" placeholder="0"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">العملة</label><select class="inp" id="f-cur"><option value="IQD">دينار (IQD)</option><option value="USD">دولار (USD)</option></select></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">التاريخ *</label><input class="inp" id="f-date" type="date" value="${today()}"/></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2"></textarea></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="savePayment(null)" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ التسديد</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+function openEditPayment(idx) {
+  const pay = _pays[idx];
+  if(!pay) return;
+  showModal('تعديل التسديد', `
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الزبون</label><select class="inp" id="f-cust">${custOptions(_custs,pay.customer_id)}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">المبلغ</label><input class="inp" id="f-amount" type="number" value="${pay.amount}"/></div>
+      <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">العملة</label><select class="inp" id="f-cur"><option value="IQD" ${pay.currency==='IQD'?'selected':''}>دينار (IQD)</option><option value="USD" ${pay.currency==='USD'?'selected':''}>دولار (USD)</option></select></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">التاريخ</label><input class="inp" id="f-date" type="date" value="${pay.date}"/></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">ملاحظات</label><textarea class="inp" id="f-notes" rows="2">${esc(pay.notes||'')}</textarea></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="savePayment('${pay.id}')" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+async function savePayment(id) {
+  const cust=$('f-cust').value,amount=parseFloat($('f-amount').value),cur=$('f-cur').value,date=$('f-date').value,notes=$('f-notes').value.trim();
+  if(!cust||!amount){$('f-err').textContent='الرجاء إكمال الحقول المطلوبة';$('f-err').style.display='block';return;}
+  try {
+    const obj={customer_id:cust,amount,currency:cur,date,notes};
+    if(id) await dbUpdate('payments',id,obj);
+    else await dbInsert('payments',{...obj,rep_id:currentUser.id});
+    closeModal(); showToast(id?'تم التعديل':'تمت الإضافة'); renderPayments();
+  } catch(e){$('f-err').textContent=e.message;$('f-err').style.display='block';}
+}
+
+async function deletePayment(id) {
+  if(!confirm('هل تريد حذف هذا التسديد؟')) return;
+  try { await dbDelete('payments',id); showToast('تم الحذف'); renderPayments(); }
+  catch(e){showToast(e.message,false);}
+}
+
+// ═══ STATEMENT ═══
+async function renderStatement(preId=null, preName=null) {
+  const custs = await getCustomers();
+  $('content').innerHTML = `
+    <h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0 0 20px">كشف الحساب</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      <select class="inp" id="stmt-cust" style="max-width:320px" onchange="loadStatement(this.value,this.options[this.selectedIndex].text)">
+        <option value="">-- اختر الزبون --</option>
+        ${custs.map(c=>`<option value="${c.id}" ${c.id===preId?'selected':''}>${esc(c.name)}</option>`).join('')}
+      </select>
+      <select class="inp" id="stmt-cur" style="max-width:180px" onchange="reloadStatement()">
+        <option value="IQD">دينار عراقي (IQD)</option>
+        <option value="USD">دولار أمريكي (USD)</option>
+      </select>
+    </div>
+    <div id="stmt-body"></div>`;
+  if(preId) loadStatement(preId, preName||custs.find(c=>c.id===preId)?.name||'');
+}
+
+function reloadStatement() {
+  const sel = $('stmt-cust');
+  if(sel && sel.value) loadStatement(sel.value, sel.options[sel.selectedIndex].text);
+}
+
+// Store statement data globally for PDF export
+let _stmtData = null;
+
+async function loadStatement(custId, custName) {
+  if(!custId){$('stmt-body').innerHTML='';return;}
+  $('stmt-body').innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8">جارٍ التحميل...</div>';
+  const cur = $('stmt-cur')?.value || 'IQD';
+  try {
+    const [allInvs, allPays] = await Promise.all([getInvoices(custId),getPayments(custId)]);
+    // Filter by selected currency
+    const invs = allInvs.filter(i=>i.currency===cur);
+    const pays = allPays.filter(p=>p.currency===cur);
+
+    const totalInv = invs.reduce((s,i)=>s+parseFloat(i.amount||0),0);
+    const totalPay = pays.reduce((s,p)=>s+parseFloat(p.amount||0),0);
+    const remaining = totalInv - totalPay;
+
+    const timeline = [
+      ...invs.map(i=>({...i,type:'invoice'})),
+      ...pays.map(p=>({...p,type:'payment'}))
+    ].sort((a,b)=>a.date.localeCompare(b.date));
+
+    // Save for PDF
+    _stmtData = { custName, cur, totalInv, totalPay, remaining, timeline };
+
+    const curLabel = cur==='IQD' ? 'دينار عراقي (IQD)' : 'دولار أمريكي (USD)';
+    const remColor = remaining>0?'#f97316':'#10b981';
+
+    $('stmt-body').innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+        <button class="btn" onclick="exportStatementPDF()" style="padding:10px 20px;border-radius:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-size:14px;font-weight:700;font-family:Cairo,sans-serif;display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          تصدير PDF
+        </button>
+      </div>
+      <!-- Balance summary for selected currency only -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+        <div class="card" style="padding:16px;text-align:center;background:#fef2f2;border-color:#fecaca">
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px">اجمالي الفواتير</div>
+          <div style="font-weight:800;color:#dc2626;font-size:16px">${fmt(totalInv,cur)}</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;background:#f0fdf4;border-color:#bbf7d0">
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px">اجمالي التسديد</div>
+          <div style="font-weight:800;color:#16a34a;font-size:16px">${fmt(totalPay,cur)}</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center;background:#fff7ed;border-color:#fed7aa">
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px">الرصيد المتبقي</div>
+          <div style="font-weight:800;font-size:16px;color:${remColor}">${fmt(Math.abs(remaining),cur)}${remaining<0?' ✓':''}</div>
+        </div>
+      </div>
+      <div class="card fade" style="overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:700;color:#1e293b">سجل معاملات — ${esc(custName)}</span>
+          <span style="font-size:12px;font-weight:600;color:#0284c7;background:#eff6ff;padding:3px 10px;border-radius:8px">${curLabel}</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>النوع</th><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+            <tbody>
+              ${timeline.length===0?`<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px">لا توجد معاملات بعملة ${curLabel}</td></tr>`:timeline.map(r=>`
+                <tr>
+                  <td><span class="${r.type==='invoice'?'tag-inv':'tag-pay'}">${r.type==='invoice'?'فاتورة':'تسديد'}</span></td>
+                  <td style="color:#64748b">${r.date}</td>
+                  <td>${esc(r.invoice_number||r.notes||'—')}</td>
+                  <td style="font-weight:700;color:#ef4444">${r.type==='invoice'?fmt(r.amount,cur):'—'}</td>
+                  <td style="font-weight:700;color:#10b981">${r.type==='payment'?fmt(r.amount,cur):'—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch(e){$('stmt-body').innerHTML=`<div class="alert-err">${e.message}</div>`;}
+}
+
+async function exportStatementPDF() {
+  if(!_stmtData) return;
+  const { custName, cur, totalInv, totalPay, remaining, timeline } = _stmtData;
+  const info = await getCompanyInfo();
+  const curLabel = cur==='IQD' ? 'دينار عراقي (IQD)' : 'دولار أمريكي (USD)';
+  const fmtN = (n) => cur==='USD' ? '$'+Number(n).toLocaleString('en') : Number(n).toLocaleString('en')+' IQD';
+  const printDate = new Date().toLocaleDateString('en-GB');
+
+  // Build running balance
+  let runBal = 0;
+  const rows = timeline.map((r,i) => {
+    if(r.type==='invoice') runBal += parseFloat(r.amount||0);
+    else runBal -= parseFloat(r.amount||0);
+    return { ...r, idx:i+1, runBal };
+  });
+
+  const remColor = remaining <= 0 ? '#16a34a' : '#ea580c';
+
+  // Create hidden print div
+  const div = document.createElement('div');
+  div.id = 'pdf-print-area';
+  div.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;background:#fff;font-family:Cairo,sans-serif;direction:rtl;padding:0;z-index:-1';
+  div.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0369a1,#0ea5e9);padding:22px 30px;color:#fff;text-align:center">
+      ${info.logo?`<img src="${info.logo}" style="height:48px;margin-bottom:8px;border-radius:8px" onerror="this.style.display='none'"/><br/>`:''}
+      <div style="font-size:22px;font-weight:800;margin-bottom:2px">${info.company||'نظام حسابات المناديب'}</div>
+      ${info.address?`<div style="font-size:11px;opacity:.8;margin-top:3px">📍 ${info.address}</div>`:''}
+      ${info.phone?`<div style="font-size:11px;opacity:.8">📞 ${info.phone}</div>`:''}
+    </div>
+    <div style="background:#0ea5e9;padding:8px;text-align:center">
+      <div style="font-size:15px;font-weight:700;color:#fff">كشف حساب زبون</div>
+    </div>
+
+    <div style="margin:16px 24px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="margin-bottom:8px"><span style="font-weight:700;color:#374151">الزبون: </span><span style="color:#1e293b;font-size:15px;font-weight:600">${custName}</span></div>
+        <div><span style="font-weight:700;color:#374151">العملة: </span><span style="color:#0284c7;font-weight:600">${curLabel}</span></div>
+      </div>
+      <div style="text-align:left">
+        <div style="margin-bottom:8px"><span style="font-weight:700;color:#374151">التاريخ: </span><span>${printDate}</span></div>
+        <div style="margin-bottom:4px"><span style="font-weight:700;color:#374151">المندوب: </span><span>${info.rep||currentUser.name||currentUser.email}</span></div>
+        ${info.email?`<div><span style="font-weight:700;color:#374151">الإيميل: </span><span style="font-size:12px">${info.email}</span></div>`:''}
+      </div>
+    </div>
+
+    <div style="margin:0 24px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:12px;color:#64748b;margin-bottom:4px">إجمالي الفواتير</div>
+        <div style="font-weight:800;color:#dc2626;font-size:15px">${fmtN(totalInv)}</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:12px;color:#64748b;margin-bottom:4px">إجمالي التسديد</div>
+        <div style="font-weight:800;color:#16a34a;font-size:15px">${fmtN(totalPay)}</div>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:12px;color:#64748b;margin-bottom:4px">الرصيد المتبقي</div>
+        <div style="font-weight:800;font-size:15px;color:${remColor}">${fmtN(Math.abs(remaining))}${remaining<0?' ✓':''}</div>
+      </div>
+    </div>
+
+    <div style="margin:0 24px 8px;font-weight:700;color:#1e293b;font-size:14px;padding-bottom:6px;border-bottom:2px solid #e2e8f0">
+      سجل المعاملات
+    </div>
+
+    <table style="width:calc(100% - 48px);margin:8px 24px;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#0f172a;color:#fff">
+          <th style="padding:9px 10px;text-align:right;border-radius:0">#</th>
+          <th style="padding:9px 10px;text-align:right">النوع</th>
+          <th style="padding:9px 10px;text-align:right">التاريخ</th>
+          <th style="padding:9px 10px;text-align:right">البيان</th>
+          <th style="padding:9px 10px;text-align:right">مدين</th>
+          <th style="padding:9px 10px;text-align:right">دائن</th>
+          <th style="padding:9px 10px;text-align:right">الرصيد</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.length===0
+          ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">لا توجد معاملات</td></tr>`
+          : rows.map((r,i)=>`
+          <tr style="background:${i%2===0?'#f8fafc':'#fff'};border-bottom:1px solid #f1f5f9">
+            <td style="padding:8px 10px;color:#64748b">${r.idx}</td>
+            <td style="padding:8px 10px">
+              <span style="background:${r.type==='invoice'?'#fee2e2':'#dcfce7'};color:${r.type==='invoice'?'#dc2626':'#16a34a'};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">
+                ${r.type==='invoice'?'فاتورة':'تسديد'}
+              </span>
+            </td>
+            <td style="padding:8px 10px;color:#475569">${r.date}</td>
+            <td style="padding:8px 10px;color:#1e293b">${r.invoice_number||r.notes||'—'}</td>
+            <td style="padding:8px 10px;font-weight:700;color:#dc2626">${r.type==='invoice'?fmtN(r.amount):'—'}</td>
+            <td style="padding:8px 10px;font-weight:700;color:#16a34a">${r.type==='payment'?fmtN(r.amount):'—'}</td>
+            <td style="padding:8px 10px;font-weight:700;color:${r.runBal>0?'#ea580c':'#16a34a'}">${fmtN(Math.abs(r.runBal))}${r.runBal<0?' ✓':''}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+
+    <div style="margin:16px 24px 8px;padding:10px 16px;background:#f8fafc;border-radius:8px;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8">
+      <span>${info.company||'نظام حسابات المناديب'}${info.phone?' | 📞 '+info.phone:''}</span>
+      <span>طُبع بتاريخ: ${printDate}</span>
+    </div>
+  `;
+  document.body.appendChild(div);
+
+  showToast('جارٍ تجهيز PDF...');
+
+  setTimeout(async () => {
+    try {
+      const canvas = await html2canvas(div, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+      const W = pdf.internal.pageSize.getWidth();
+      const H = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * W) / canvas.width;
+
+      if(imgH <= H) {
+        pdf.addImage(imgData,'PNG',0,0,W,imgH);
+      } else {
+        // Multi-page
+        let yPos = 0;
+        while(yPos < imgH) {
+          if(yPos > 0) pdf.addPage();
+          pdf.addImage(imgData,'PNG',0,-yPos,W,imgH);
+          yPos += H;
+        }
+      }
+
+      pdf.save(`كشف-حساب-${custName}-${cur}-${today()}.pdf`);
+      showToast('تم تصدير PDF بنجاح! ✅');
+    } catch(e) {
+      showToast('خطأ في التصدير: '+e.message, false);
+    }
+    document.body.removeChild(div);
+  }, 300);
+}
+
+
+function viewStatement(custId, custName) {
+  navigate('statement');
+  setTimeout(()=>{ const s=$('stmt-cust'); if(s){s.value=custId; loadStatement(custId,custName);} },100);
+}
+
+// ═══ USERS ═══
+async function renderUsers() {
+  try {
+    const users = await dbQuery('profiles');
+    $('content').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+        <div><h2 style="font-size:22px;font-weight:800;color:#1e293b;margin:0">المستخدمين</h2><p style="color:#94a3b8;margin:2px 0 0;font-size:13px">${users.length} مستخدم</p></div>
+        <button class="btn btn-primary" onclick="openAddUser()" style="padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;font-family:Cairo,sans-serif">+ إضافة مستخدم</button>
+      </div>
+      <div class="grid2 fade">
+        ${users.map(u=>`
+          <div class="card" style="padding:18px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <div style="width:46px;height:46px;background:${u.role==='admin'?'#f3e8ff':'#eff6ff'};border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px">
+                ${u.role==='admin'?'👑':'👤'}
+              </div>
+              <div>
+                <div style="font-weight:700;color:#1e293b;font-size:15px">${esc(u.name)}</div>
+                <span class="${u.role==='admin'?'badge-admin':'badge-rep'}">${u.role==='admin'?'مدير النظام':'مندوب مبيعات'}</span>
+              </div>
+              ${u.id===currentUser.id?'<span style="margin-right:auto;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">أنت</span>':''}
+            </div>
+            <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid #f1f5f9">
+              <button class="btn" onclick="openEditUser('${u.id}','${esc(u.name)}','${u.role}')" style="flex:1;padding:7px;border-radius:10px;background:#f8fafc;color:#475569;font-size:13px;font-weight:600;font-family:Cairo,sans-serif">✏️ تعديل</button>
+              ${u.id!==currentUser.id?`<button class="btn" onclick="deleteUser('${u.id}')" style="padding:7px 10px;border-radius:10px;background:#fef2f2;color:#ef4444">🗑</button>`:''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  } catch(e){$('content').innerHTML=`<div class="alert-err">${e.message}</div>`;}
+}
+
+function openAddUser() {
+  showModal('إضافة مستخدم جديد', `
+    <div class="alert-warn">سيتم إنشاء المستخدم في Supabase Authentication — تأكد من صلاحيات Service Role إن واجهت مشكلة، أو أضفه من لوحة Supabase مباشرة.</div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الاسم الكامل *</label><input class="inp" id="f-name" placeholder="اسم المندوب"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">البريد الإلكتروني *</label><input class="inp" id="f-email" type="email" placeholder="example@email.com"/></div>
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">كلمة المرور *</label><input class="inp" id="f-pass" type="password" placeholder="8 أحرف على الأقل"/></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الصلاحية</label><select class="inp" id="f-role"><option value="rep">مندوب مبيعات</option><option value="admin">مدير النظام</option></select></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveUser(null)" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">إنشاء المستخدم</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+function openEditUser(id, name, role) {
+  showModal('تعديل المستخدم', `
+    <div style="margin-bottom:14px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الاسم الكامل *</label><input class="inp" id="f-name" value="${name}"/></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">الصلاحية</label><select class="inp" id="f-role"><option value="rep" ${role==='rep'?'selected':''}>مندوب مبيعات</option><option value="admin" ${role==='admin'?'selected':''}>مدير النظام</option></select></div>
+    <div id="f-err" class="alert-err" style="display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="saveUser('${id}')" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">حفظ</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+async function saveUser(id) {
+  const name=$('f-name')?.value.trim(), role=$('f-role').value;
+  if(!name){$('f-err').textContent='الاسم مطلوب';$('f-err').style.display='block';return;}
+  try {
+    if(id) {
+      await dbUpdate('profiles',id,{name,role});
+      closeModal(); showToast('تم التعديل'); renderUsers();
+    } else {
+      const email=$('f-email').value.trim(), pass=$('f-pass').value;
+      if(!email||!pass){$('f-err').textContent='الإيميل وكلمة المرور مطلوبة';$('f-err').style.display='block';return;}
+      // Use signUp then update profile
+      const {data,error} = await sb.auth.signUp({email,password:pass,options:{data:{name,role}}});
+      if(error) throw error;
+      if(data.user) await dbUpdate('profiles',data.user.id,{name,role});
+      closeModal(); showToast('تم إنشاء المستخدم — تأكد من تفعيله في Supabase'); renderUsers();
+    }
+  } catch(e){$('f-err').textContent=e.message;$('f-err').style.display='block';}
+}
+
+async function deleteUser(id) {
+  if(!confirm('هل تريد حذف هذا المستخدم؟')) return;
+  try { await dbDelete('profiles',id); showToast('تم الحذف'); renderUsers(); }
+  catch(e){showToast(e.message,false);}
+}
+
+// ═══ START ═══
+function togglePassVis(inputId, eyeId) {
+  const inp = document.getElementById(inputId);
+  const eye = document.getElementById(eyeId);
+  if(!inp) return;
+  if(inp.type==='password') {
+    inp.type = 'text';
+    eye.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    inp.type = 'password';
+    eye.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+function showChangePassword() {
+  showModal('تغيير كلمة المرور', `
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">كلمة المرور الجديدة *</label>
+      <div style="position:relative">
+        <input class="inp" id="cp-new" type="password" placeholder="••••••••" style="padding-left:40px"/>
+        <button type="button" onclick="togglePassVis('cp-new','eye-cp1')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8">
+          <svg id="eye-cp1" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">تأكيد كلمة المرور *</label>
+      <div style="position:relative">
+        <input class="inp" id="cp-confirm" type="password" placeholder="••••••••" style="padding-left:40px"/>
+        <button type="button" onclick="togglePassVis('cp-confirm','eye-cp2')" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8">
+          <svg id="eye-cp2" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="cp-err" class="alert-err" style="display:none"></div>
+    <div id="cp-ok" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px;border-radius:10px;font-size:13px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="doChangePassword()" style="flex:1;padding:11px;border-radius:12px;font-size:15px;font-weight:700;font-family:Cairo,sans-serif">تغيير كلمة المرور</button>
+      <button class="btn" onclick="closeModal()" style="padding:11px 18px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600">إلغاء</button>
+    </div>`);
+}
+
+async function doChangePassword() {
+  const np = $('cp-new').value;
+  const cp = $('cp-confirm').value;
+  $('cp-err').style.display='none';
+  $('cp-ok').style.display='none';
+  if(!np || np.length < 6) { $('cp-err').textContent='كلمة المرور يجب أن تكون 6 أحرف على الأقل'; $('cp-err').style.display='block'; return; }
+  if(np !== cp) { $('cp-err').textContent='كلمتا المرور غير متطابقتين'; $('cp-err').style.display='block'; return; }
+  try {
+    const { error } = await sb.auth.updateUser({ password: np });
+    if(error) throw error;
+    $('cp-ok').textContent = '✅ تم تغيير كلمة المرور بنجاح!';
+    $('cp-ok').style.display = 'block';
+    setTimeout(()=>closeModal(), 2000);
+  } catch(e) {
+    $('cp-err').textContent = e.message;
+    $('cp-err').style.display = 'block';
+  }
+}
+
+function showForgotPassword() {
+  const email = $('login-email').value.trim();
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  div.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <h3 style="font-size:17px;font-weight:800;color:#1e293b;margin:0 0 8px">نسيت كلمة المرور؟</h3>
+      <p style="font-size:13px;color:#64748b;margin:0 0 16px">أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين</p>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px">البريد الإلكتروني</label>
+        <input class="inp" id="forgot-email" type="email" value="${email}" placeholder="example@email.com"/>
+      </div>
+      <div id="forgot-msg" style="display:none;margin-bottom:12px"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="sendResetEmail()" class="btn btn-primary" style="flex:1;padding:11px;border-radius:12px;font-size:14px;font-weight:700;font-family:Cairo,sans-serif">إرسال الرابط</button>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="padding:11px 16px;border-radius:12px;border:1.5px solid #e2e8f0;color:#475569;font-family:Cairo,sans-serif;font-weight:600;background:#fff;cursor:pointer">إلغاء</button>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;font-size:12px;color:#92400e">
+        <strong>ملاحظة:</strong> إذا لم يصلك الإيميل، تواصل مع المدير لإعادة تعيين كلمة المرور يدوياً.
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+async function sendResetEmail() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msg = document.getElementById('forgot-msg');
+  if(!email) {
+    msg.innerHTML = '<div class="alert-err">الرجاء إدخال البريد الإلكتروني</div>';
+    msg.style.display = 'block';
+    return;
+  }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href
+    });
+    if(error) throw error;
+    msg.innerHTML = '<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:10px;border-radius:10px;font-size:13px">✅ تم الإرسال! تحقق من بريدك الإلكتروني</div>';
+    msg.style.display = 'block';
+  } catch(e) {
+    msg.innerHTML = `<div class="alert-err">${e.message==='Email rate limit exceeded'?'تجاوزت الحد المسموح، انتظر قليلاً وحاول مرة أخرى':e.message}</div>`;
+    msg.style.display = 'block';
+  }
+}
+
+window.addEventListener('load', async () => {
+  $('login-page').style.display = 'flex';
+  // Check existing session
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    if(session) {
+      const {data:profile} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
+      if(profile) {
+        currentUser = {id:session.user.id, email:session.user.email, name:profile.name||session.user.email, role:profile.role||'rep'};
+        showApp();
+        return;
+      }
+    }
+  } catch(e){}
+  $('login-page').style.display = 'flex';
+});
+
+// Mobile menu
+if(window.innerWidth<=768) {
+  $('menu-btn').style.display='flex';
+  document.addEventListener('click', e=>{
+    const sidebar=$('sidebar');
+    if(!sidebar.contains(e.target)&&!$('menu-btn').contains(e.target)) sidebar.classList.remove('open');
+  });
+}
+</script>
+</body>
+</html>
